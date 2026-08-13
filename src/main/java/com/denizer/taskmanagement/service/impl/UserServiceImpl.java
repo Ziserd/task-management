@@ -2,6 +2,8 @@ package com.denizer.taskmanagement.service.impl;
 
 import com.denizer.taskmanagement.dto.UserRequestDto;
 import com.denizer.taskmanagement.dto.UserResponseDto;
+import com.denizer.taskmanagement.exception.EmailAlreadyExistsException;
+import com.denizer.taskmanagement.exception.ResourceNotFoundException;
 import com.denizer.taskmanagement.service.UserService;
 import org.springframework.stereotype.Service;
 import com.denizer.taskmanagement.entity.User;
@@ -22,7 +24,7 @@ public class UserServiceImpl implements UserService {
     public UserResponseDto createUser(UserRequestDto request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists.");
+            throw new EmailAlreadyExistsException("Email already exists.");
         }
 
         User user = User.builder()
@@ -50,7 +52,7 @@ public class UserServiceImpl implements UserService {
     public UserResponseDto getUserById(Long id) {
 
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
         return UserResponseDto.builder()
                 .id(user.getId())
@@ -84,7 +86,7 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long id) {
 
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found.");
+            throw new ResourceNotFoundException("User not found.");
         }
 
         userRepository.deleteById(id);
@@ -94,12 +96,12 @@ public class UserServiceImpl implements UserService {
     public UserResponseDto updateUser(Long id, UserRequestDto request) {
 
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
         Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
 
         if (existingUser.isPresent() && !existingUser.get().getId().equals(id)) {
-            throw new RuntimeException("Email already exists.");
+            throw new EmailAlreadyExistsException("Email already exists.");
         }
 
         user.setFirstName(request.getFirstName());
