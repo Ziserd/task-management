@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.controller;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,13 @@ public class TaskController {
     @GetMapping("/user/{userId}")
     public List<TaskResponseDto> getTasksByUserId(@PathVariable Long userId) {
         return taskService.getTasksByUserId(userId);
+    }
+
+    @GetMapping(params = "status")
+    public List<TaskResponseDto> getTasksByStatus(
+            @RequestParam TaskStatus status) {
+
+        return taskService.getTasksByStatus(status);
     }
 
     @PutMapping("/{id}")
