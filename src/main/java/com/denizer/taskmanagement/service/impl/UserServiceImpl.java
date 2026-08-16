@@ -5,6 +5,7 @@ import com.denizer.taskmanagement.dto.UserResponseDto;
 import com.denizer.taskmanagement.exception.EmailAlreadyExistsException;
 import com.denizer.taskmanagement.exception.ResourceNotFoundException;
 import com.denizer.taskmanagement.service.UserService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.denizer.taskmanagement.entity.User;
 import com.denizer.taskmanagement.repository.UserRepository;
@@ -15,9 +16,11 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -31,7 +34,7 @@ public class UserServiceImpl implements UserService {
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
                 .build();
 
