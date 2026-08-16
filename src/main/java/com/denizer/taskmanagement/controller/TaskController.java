@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.controller;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
@@ -37,22 +38,29 @@ public class TaskController {
         return ResponseEntity.ok(taskService.getTaskById(id));
     }
 
-    @GetMapping
-    public ResponseEntity<List<TaskResponseDto>> getAllTasks() {
-
-        return ResponseEntity.ok(taskService.getAllTasks());
-    }
-
     @GetMapping("/user/{userId}")
     public List<TaskResponseDto> getTasksByUserId(@PathVariable Long userId) {
         return taskService.getTasksByUserId(userId);
     }
 
-    @GetMapping(params = "status")
-    public List<TaskResponseDto> getTasksByStatus(
-            @RequestParam TaskStatus status) {
+    @GetMapping
+    public List<TaskResponseDto> getTasks(
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority) {
 
-        return taskService.getTasksByStatus(status);
+        if (status != null && priority != null) {
+            return taskService.getTasksByStatusAndPriority(status, priority);
+        }
+
+        if (status != null) {
+            return taskService.getTasksByStatus(status);
+        }
+
+        if (priority != null) {
+            return taskService.getTasksByPriority(priority);
+        }
+
+        return taskService.getAllTasks();
     }
 
     @PutMapping("/{id}")

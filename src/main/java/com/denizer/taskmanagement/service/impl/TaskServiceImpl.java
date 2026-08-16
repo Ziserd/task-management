@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.service.impl;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.repository.TaskRepository;
 import com.denizer.taskmanagement.service.TaskService;
@@ -120,6 +121,46 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskResponseDto> getTasksByStatus(TaskStatus status) {
 
         return taskRepository.findByStatus(status)
+                .stream()
+                .map(task -> TaskResponseDto.builder()
+                        .id(task.getId())
+                        .title(task.getTitle())
+                        .description(task.getDescription())
+                        .status(task.getStatus())
+                        .priority(task.getPriority())
+                        .dueDate(task.getDueDate())
+                        .userId(task.getUser().getId())
+                        .createdAt(task.getCreatedAt())
+                        .updatedAt(task.getUpdatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    public List<TaskResponseDto> getTasksByPriority(TaskPriority priority) {
+
+        return taskRepository.findByPriority(priority)
+                .stream()
+                .map(task -> TaskResponseDto.builder()
+                        .id(task.getId())
+                        .title(task.getTitle())
+                        .description(task.getDescription())
+                        .status(task.getStatus())
+                        .priority(task.getPriority())
+                        .dueDate(task.getDueDate())
+                        .userId(task.getUser().getId())
+                        .createdAt(task.getCreatedAt())
+                        .updatedAt(task.getUpdatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    public List<TaskResponseDto> getTasksByStatusAndPriority(
+            TaskStatus status,
+            TaskPriority priority) {
+
+        return taskRepository.findByStatusAndPriority(status, priority)
                 .stream()
                 .map(task -> TaskResponseDto.builder()
                         .id(task.getId())

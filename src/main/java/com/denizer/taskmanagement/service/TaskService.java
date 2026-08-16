@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.service;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 
 import java.util.List;
@@ -21,4 +22,11 @@ public interface TaskService {
     List<TaskResponseDto> getTasksByUserId(Long userId);
 
     List<TaskResponseDto> getTasksByStatus(TaskStatus status);
+
+    List<TaskResponseDto> getTasksByPriority(TaskPriority priority);
+
+    List<TaskResponseDto> getTasksByStatusAndPriority(
+            TaskStatus status,
+            TaskPriority priority
+    );
 }
