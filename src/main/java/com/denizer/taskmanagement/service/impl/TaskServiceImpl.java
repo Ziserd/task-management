@@ -93,6 +93,29 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public List<TaskResponseDto> getTasksByUserId(Long userId) {
+
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found.");
+        }
+
+        return taskRepository.findByUserId(userId)
+                .stream()
+                .map(task -> TaskResponseDto.builder()
+                        .id(task.getId())
+                        .title(task.getTitle())
+                        .description(task.getDescription())
+                        .status(task.getStatus())
+                        .priority(task.getPriority())
+                        .dueDate(task.getDueDate())
+                        .userId(task.getUser().getId())
+                        .createdAt(task.getCreatedAt())
+                        .updatedAt(task.getUpdatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override
     public TaskResponseDto updateTask(Long id, TaskRequestDto request) {
 
         Task task = taskRepository.findById(id)

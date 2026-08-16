@@ -42,6 +42,11 @@ public class TaskController {
         return ResponseEntity.ok(taskService.getAllTasks());
     }
 
+    @GetMapping("/user/{userId}")
+    public List<TaskResponseDto> getTasksByUserId(@PathVariable Long userId) {
+        return taskService.getTasksByUserId(userId);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<TaskResponseDto> updateTask(
             @PathVariable Long id,
