@@ -11,6 +11,9 @@ import com.denizer.taskmanagement.entity.User;
 import com.denizer.taskmanagement.repository.UserRepository;
 import com.denizer.taskmanagement.entity.Task;
 import com.denizer.taskmanagement.exception.ResourceNotFoundException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.denizer.taskmanagement.exception.ForbiddenException;
 
 import java.util.List;
 
@@ -29,8 +32,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskResponseDto createTask(TaskRequestDto request) {
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        User user = getAuthenticatedUser();
 
         Task task = Task.builder()
                 .title(request.getTitle())
@@ -78,7 +80,26 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public List<TaskResponseDto> getAllTasks() {
 
-        return taskRepository.findAll()
+        User authenticatedUser = getAuthenticatedUser();
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+            return taskRepository.findAll()
+                    .stream()
+                    .map(task -> TaskResponseDto.builder()
+                            .id(task.getId())
+                            .title(task.getTitle())
+                            .description(task.getDescription())
+                            .status(task.getStatus())
+                            .priority(task.getPriority())
+                            .dueDate(task.getDueDate())
+                            .userId(task.getUser().getId())
+                            .createdAt(task.getCreatedAt())
+                            .updatedAt(task.getUpdatedAt())
+                            .build())
+                    .toList();
+        }
+
+        return taskRepository.findByUserId(authenticatedUser.getId())
                 .stream()
                 .map(task -> TaskResponseDto.builder()
                         .id(task.getId())
@@ -97,8 +118,10 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public List<TaskResponseDto> getTasksByUserId(Long userId) {
 
-        if (!userRepository.existsById(userId)) {
-            throw new ResourceNotFoundException("User not found.");
+        User authenticatedUser = getAuthenticatedUser();
+
+        if (!authenticatedUser.getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to access this user's tasks.");
         }
 
         return taskRepository.findByUserId(userId)
@@ -120,8 +143,20 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public List<TaskResponseDto> getTasksByStatus(TaskStatus status) {
 
-        return taskRepository.findByStatus(status)
-                .stream()
+        User authenticatedUser = getAuthenticatedUser();
+
+        List<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+            tasks = taskRepository.findByStatus(status);
+        } else {
+            tasks = taskRepository.findByUserIdAndStatus(
+                    authenticatedUser.getId(),
+                    status
+            );
+        }
+
+        return tasks.stream()
                 .map(task -> TaskResponseDto.builder()
                         .id(task.getId())
                         .title(task.getTitle())
@@ -139,8 +174,20 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public List<TaskResponseDto> getTasksByPriority(TaskPriority priority) {
 
-        return taskRepository.findByPriority(priority)
-                .stream()
+        User authenticatedUser = getAuthenticatedUser();
+
+        List<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+            tasks = taskRepository.findByPriority(priority);
+        } else {
+            tasks = taskRepository.findByUserIdAndPriority(
+                    authenticatedUser.getId(),
+                    priority
+            );
+        }
+
+        return tasks.stream()
                 .map(task -> TaskResponseDto.builder()
                         .id(task.getId())
                         .title(task.getTitle())
@@ -160,8 +207,24 @@ public class TaskServiceImpl implements TaskService {
             TaskStatus status,
             TaskPriority priority) {
 
-        return taskRepository.findByStatusAndPriority(status, priority)
-                .stream()
+        User authenticatedUser = getAuthenticatedUser();
+
+        List<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+            tasks = taskRepository.findByStatusAndPriority(
+                    status,
+                    priority
+            );
+        } else {
+            tasks = taskRepository.findByUserIdAndStatusAndPriority(
+                    authenticatedUser.getId(),
+                    status,
+                    priority
+            );
+        }
+
+        return tasks.stream()
                 .map(task -> TaskResponseDto.builder()
                         .id(task.getId())
                         .title(task.getTitle())
@@ -176,21 +239,37 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    private User getAuthenticatedUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found."));
+    }
+
     @Override
     public TaskResponseDto updateTask(Long id, TaskRequestDto request) {
 
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found."));
+        User user = getAuthenticatedUser();
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        if (!user.getRole().name().equals("ADMIN")
+                && !task.getUser().getId().equals(user.getId())) {
+            throw new ForbiddenException(
+                    "You are not allowed to update this task."
+            );
+        }
 
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setStatus(request.getStatus());
         task.setPriority(request.getPriority());
         task.setDueDate(request.getDueDate());
-        task.setUser(user);
 
         Task updatedTask = taskRepository.save(task);
 
@@ -210,10 +289,20 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public void deleteTask(Long id) {
 
-        if (!taskRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Task not found.");
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task not found."));
+
+        User user = getAuthenticatedUser();
+
+        if (!user.getRole().name().equals("ADMIN")
+                && !task.getUser().getId().equals(user.getId())) {
+
+            throw new ForbiddenException(
+                    "You are not allowed to delete this task."
+            );
         }
 
-        taskRepository.deleteById(id);
+        taskRepository.delete(task);
     }
 }

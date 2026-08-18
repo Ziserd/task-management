@@ -34,6 +34,4 @@ public class TaskRequestDto {
     @FutureOrPresent(message = "Due date cannot be in the past.")
     private LocalDate dueDate;
 
-    @NotNull(message = "User ID cannot be null.")
-    private Long userId;
 }

@@ -38,4 +38,34 @@ public class JwtServiceImpl implements JwtService {
                 .signWith(key)
                 .compact();
     }
+
+    @Override
+    public String extractEmail(String token) {
+
+        SecretKey key = Keys.hmacShaKeyFor(
+                secretKey.getBytes(StandardCharsets.UTF_8)
+        );
+
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
+
+    @Override
+    public String extractRole(String token) {
+
+        SecretKey key = Keys.hmacShaKeyFor(
+                secretKey.getBytes(StandardCharsets.UTF_8)
+        );
+
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("role", String.class);
+    }
 }
