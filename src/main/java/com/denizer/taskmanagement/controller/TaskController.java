@@ -6,10 +6,11 @@ import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 @RestController
@@ -39,28 +40,42 @@ public class TaskController {
     }
 
     @GetMapping("/user/{userId}")
-    public List<TaskResponseDto> getTasksByUserId(@PathVariable Long userId) {
-        return taskService.getTasksByUserId(userId);
+    public Page<TaskResponseDto> getTasksByUserId(
+            @PathVariable Long userId,
+            Pageable pageable) {
+
+        return taskService.getTasksByUserId(userId, pageable);
     }
 
     @GetMapping
-    public List<TaskResponseDto> getTasks(
+    public Page<TaskResponseDto> getTasks(
             @RequestParam(required = false) TaskStatus status,
-            @RequestParam(required = false) TaskPriority priority) {
+            @RequestParam(required = false) TaskPriority priority,
+            Pageable pageable) {
 
         if (status != null && priority != null) {
-            return taskService.getTasksByStatusAndPriority(status, priority);
+            return taskService.getTasksByStatusAndPriority(
+                    status,
+                    priority,
+                    pageable
+            );
         }
 
         if (status != null) {
-            return taskService.getTasksByStatus(status);
+            return taskService.getTasksByStatus(
+                    status,
+                    pageable
+            );
         }
 
         if (priority != null) {
-            return taskService.getTasksByPriority(priority);
+            return taskService.getTasksByPriority(
+                    priority,
+                    pageable
+            );
         }
 
-        return taskService.getAllTasks();
+        return taskService.getTasks(pageable);
     }
 
     @PutMapping("/{id}")
@@ -81,4 +96,6 @@ public class TaskController {
 
         return ResponseEntity.noContent().build();
     }
+
+
 }

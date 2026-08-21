@@ -2,18 +2,20 @@ package com.denizer.taskmanagement.service.impl;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.entity.Task;
 import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
-import com.denizer.taskmanagement.repository.TaskRepository;
-import com.denizer.taskmanagement.service.TaskService;
-import org.springframework.stereotype.Service;
 import com.denizer.taskmanagement.entity.User;
-import com.denizer.taskmanagement.repository.UserRepository;
-import com.denizer.taskmanagement.entity.Task;
+import com.denizer.taskmanagement.exception.ForbiddenException;
 import com.denizer.taskmanagement.exception.ResourceNotFoundException;
+import com.denizer.taskmanagement.repository.TaskRepository;
+import com.denizer.taskmanagement.repository.UserRepository;
+import com.denizer.taskmanagement.service.TaskService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import com.denizer.taskmanagement.exception.ForbiddenException;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
@@ -45,36 +47,46 @@ public class TaskServiceImpl implements TaskService {
 
         Task savedTask = taskRepository.save(task);
 
-        return TaskResponseDto.builder()
-                .id(savedTask.getId())
-                .title(savedTask.getTitle())
-                .description(savedTask.getDescription())
-                .status(savedTask.getStatus())
-                .priority(savedTask.getPriority())
-                .dueDate(savedTask.getDueDate())
-                .userId(savedTask.getUser().getId())
-                .createdAt(savedTask.getCreatedAt())
-                .updatedAt(savedTask.getUpdatedAt())
-                .build();
+        return convertToResponseDto(savedTask);
+    }
+
+    @Override
+    public Page<TaskResponseDto> getTasks(Pageable pageable) {
+
+        User authenticatedUser = getAuthenticatedUser();
+
+        Page<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+            tasks = taskRepository.findAll(pageable);
+        } else {
+            tasks = taskRepository.findByUserId(
+                    authenticatedUser.getId(),
+                    pageable
+            );
+        }
+
+        return tasks.map(this::convertToResponseDto);
     }
 
     @Override
     public TaskResponseDto getTaskById(Long id) {
 
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found."));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task not found."));
 
-        return TaskResponseDto.builder()
-                .id(task.getId())
-                .title(task.getTitle())
-                .description(task.getDescription())
-                .status(task.getStatus())
-                .priority(task.getPriority())
-                .dueDate(task.getDueDate())
-                .userId(task.getUser().getId())
-                .createdAt(task.getCreatedAt())
-                .updatedAt(task.getUpdatedAt())
-                .build();
+        User user = getAuthenticatedUser();
+
+        if (!user.getRole().name().equals("ADMIN")
+                && !task.getUser().getId().equals(user.getId())) {
+
+            throw new ForbiddenException(
+                    "You are not allowed to access this task."
+            );
+        }
+
+        return convertToResponseDto(task);
     }
 
     @Override
@@ -83,183 +95,137 @@ public class TaskServiceImpl implements TaskService {
         User authenticatedUser = getAuthenticatedUser();
 
         if (authenticatedUser.getRole().name().equals("ADMIN")) {
+
             return taskRepository.findAll()
                     .stream()
-                    .map(task -> TaskResponseDto.builder()
-                            .id(task.getId())
-                            .title(task.getTitle())
-                            .description(task.getDescription())
-                            .status(task.getStatus())
-                            .priority(task.getPriority())
-                            .dueDate(task.getDueDate())
-                            .userId(task.getUser().getId())
-                            .createdAt(task.getCreatedAt())
-                            .updatedAt(task.getUpdatedAt())
-                            .build())
+                    .map(this::convertToResponseDto)
                     .toList();
         }
 
         return taskRepository.findByUserId(authenticatedUser.getId())
                 .stream()
-                .map(task -> TaskResponseDto.builder()
-                        .id(task.getId())
-                        .title(task.getTitle())
-                        .description(task.getDescription())
-                        .status(task.getStatus())
-                        .priority(task.getPriority())
-                        .dueDate(task.getDueDate())
-                        .userId(task.getUser().getId())
-                        .createdAt(task.getCreatedAt())
-                        .updatedAt(task.getUpdatedAt())
-                        .build())
+                .map(this::convertToResponseDto)
                 .toList();
     }
 
     @Override
-    public List<TaskResponseDto> getTasksByUserId(Long userId) {
+    public Page<TaskResponseDto> getTasksByUserId(
+            Long userId,
+            Pageable pageable) {
 
         User authenticatedUser = getAuthenticatedUser();
 
         if (!authenticatedUser.getId().equals(userId)) {
-            throw new RuntimeException("You are not allowed to access this user's tasks.");
+            throw new ForbiddenException(
+                    "You are not allowed to access this user's tasks."
+            );
         }
 
-        return taskRepository.findByUserId(userId)
-                .stream()
-                .map(task -> TaskResponseDto.builder()
-                        .id(task.getId())
-                        .title(task.getTitle())
-                        .description(task.getDescription())
-                        .status(task.getStatus())
-                        .priority(task.getPriority())
-                        .dueDate(task.getDueDate())
-                        .userId(task.getUser().getId())
-                        .createdAt(task.getCreatedAt())
-                        .updatedAt(task.getUpdatedAt())
-                        .build())
-                .toList();
+        return taskRepository.findByUserId(userId, pageable)
+                .map(this::convertToResponseDto);
     }
 
     @Override
-    public List<TaskResponseDto> getTasksByStatus(TaskStatus status) {
+    public Page<TaskResponseDto> getTasksByStatus(
+            TaskStatus status,
+            Pageable pageable) {
 
         User authenticatedUser = getAuthenticatedUser();
 
-        List<Task> tasks;
+        Page<Task> tasks;
 
         if (authenticatedUser.getRole().name().equals("ADMIN")) {
-            tasks = taskRepository.findByStatus(status);
+
+            tasks = taskRepository.findByStatus(
+                    status,
+                    pageable
+            );
+
         } else {
+
             tasks = taskRepository.findByUserIdAndStatus(
                     authenticatedUser.getId(),
-                    status
+                    status,
+                    pageable
             );
         }
 
-        return tasks.stream()
-                .map(task -> TaskResponseDto.builder()
-                        .id(task.getId())
-                        .title(task.getTitle())
-                        .description(task.getDescription())
-                        .status(task.getStatus())
-                        .priority(task.getPriority())
-                        .dueDate(task.getDueDate())
-                        .userId(task.getUser().getId())
-                        .createdAt(task.getCreatedAt())
-                        .updatedAt(task.getUpdatedAt())
-                        .build())
-                .toList();
+        return tasks.map(this::convertToResponseDto);
     }
 
     @Override
-    public List<TaskResponseDto> getTasksByPriority(TaskPriority priority) {
+    public Page<TaskResponseDto> getTasksByPriority(
+            TaskPriority priority,
+            Pageable pageable) {
 
         User authenticatedUser = getAuthenticatedUser();
 
-        List<Task> tasks;
+        Page<Task> tasks;
 
         if (authenticatedUser.getRole().name().equals("ADMIN")) {
-            tasks = taskRepository.findByPriority(priority);
+
+            tasks = taskRepository.findByPriority(
+                    priority,
+                    pageable
+            );
+
         } else {
+
             tasks = taskRepository.findByUserIdAndPriority(
                     authenticatedUser.getId(),
-                    priority
+                    priority,
+                    pageable
             );
         }
 
-        return tasks.stream()
-                .map(task -> TaskResponseDto.builder()
-                        .id(task.getId())
-                        .title(task.getTitle())
-                        .description(task.getDescription())
-                        .status(task.getStatus())
-                        .priority(task.getPriority())
-                        .dueDate(task.getDueDate())
-                        .userId(task.getUser().getId())
-                        .createdAt(task.getCreatedAt())
-                        .updatedAt(task.getUpdatedAt())
-                        .build())
-                .toList();
+        return tasks.map(this::convertToResponseDto);
     }
 
     @Override
-    public List<TaskResponseDto> getTasksByStatusAndPriority(
+    public Page<TaskResponseDto> getTasksByStatusAndPriority(
             TaskStatus status,
-            TaskPriority priority) {
+            TaskPriority priority,
+            Pageable pageable) {
 
         User authenticatedUser = getAuthenticatedUser();
 
-        List<Task> tasks;
+        Page<Task> tasks;
 
         if (authenticatedUser.getRole().name().equals("ADMIN")) {
+
             tasks = taskRepository.findByStatusAndPriority(
                     status,
-                    priority
+                    priority,
+                    pageable
             );
+
         } else {
+
             tasks = taskRepository.findByUserIdAndStatusAndPriority(
                     authenticatedUser.getId(),
                     status,
-                    priority
+                    priority,
+                    pageable
             );
         }
 
-        return tasks.stream()
-                .map(task -> TaskResponseDto.builder()
-                        .id(task.getId())
-                        .title(task.getTitle())
-                        .description(task.getDescription())
-                        .status(task.getStatus())
-                        .priority(task.getPriority())
-                        .dueDate(task.getDueDate())
-                        .userId(task.getUser().getId())
-                        .createdAt(task.getCreatedAt())
-                        .updatedAt(task.getUpdatedAt())
-                        .build())
-                .toList();
-    }
-
-    private User getAuthenticatedUser() {
-
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        String email = authentication.getName();
-
-        return userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found."));
+        return tasks.map(this::convertToResponseDto);
     }
 
     @Override
-    public TaskResponseDto updateTask(Long id, TaskRequestDto request) {
+    public TaskResponseDto updateTask(
+            Long id,
+            TaskRequestDto request) {
 
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found."));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task not found."));
+
         User user = getAuthenticatedUser();
 
         if (!user.getRole().name().equals("ADMIN")
                 && !task.getUser().getId().equals(user.getId())) {
+
             throw new ForbiddenException(
                     "You are not allowed to update this task."
             );
@@ -273,17 +239,7 @@ public class TaskServiceImpl implements TaskService {
 
         Task updatedTask = taskRepository.save(task);
 
-        return TaskResponseDto.builder()
-                .id(updatedTask.getId())
-                .title(updatedTask.getTitle())
-                .description(updatedTask.getDescription())
-                .status(updatedTask.getStatus())
-                .priority(updatedTask.getPriority())
-                .dueDate(updatedTask.getDueDate())
-                .userId(updatedTask.getUser().getId())
-                .createdAt(updatedTask.getCreatedAt())
-                .updatedAt(updatedTask.getUpdatedAt())
-                .build();
+        return convertToResponseDto(updatedTask);
     }
 
     @Override
@@ -304,5 +260,32 @@ public class TaskServiceImpl implements TaskService {
         }
 
         taskRepository.delete(task);
+    }
+
+    private TaskResponseDto convertToResponseDto(Task task) {
+
+        return TaskResponseDto.builder()
+                .id(task.getId())
+                .title(task.getTitle())
+                .description(task.getDescription())
+                .status(task.getStatus())
+                .priority(task.getPriority())
+                .dueDate(task.getDueDate())
+                .userId(task.getUser().getId())
+                .createdAt(task.getCreatedAt())
+                .updatedAt(task.getUpdatedAt())
+                .build();
+    }
+
+    private User getAuthenticatedUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found."));
     }
 }

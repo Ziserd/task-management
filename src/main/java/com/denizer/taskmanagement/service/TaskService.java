@@ -4,7 +4,9 @@ import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
 import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
+import org.springframework.data.domain.Page;
 
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface TaskService {
@@ -19,14 +21,17 @@ public interface TaskService {
 
     void deleteTask(Long id);
 
-    List<TaskResponseDto> getTasksByUserId(Long userId);
+    Page<TaskResponseDto> getTasksByUserId(Long userId, Pageable pageable);
 
-    List<TaskResponseDto> getTasksByStatus(TaskStatus status);
+    Page<TaskResponseDto> getTasks(Pageable pageable);
 
-    List<TaskResponseDto> getTasksByPriority(TaskPriority priority);
+    Page<TaskResponseDto> getTasksByStatus(TaskStatus status, Pageable pageable);
 
-    List<TaskResponseDto> getTasksByStatusAndPriority(
+    Page<TaskResponseDto> getTasksByPriority(TaskPriority priority, Pageable pageable);
+
+    Page<TaskResponseDto> getTasksByStatusAndPriority(
             TaskStatus status,
-            TaskPriority priority
+            TaskPriority priority,
+            Pageable pageable
     );
 }
