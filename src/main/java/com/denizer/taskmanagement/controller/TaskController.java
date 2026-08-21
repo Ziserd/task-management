@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -49,9 +48,19 @@ public class TaskController {
 
     @GetMapping
     public Page<TaskResponseDto> getTasks(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
             Pageable pageable) {
+
+        if (search != null && !search.isBlank()) {
+            return taskService.searchTasks(
+                    search,
+                    status,
+                    priority,
+                    pageable
+            );
+        }
 
         if (status != null && priority != null) {
             return taskService.getTasksByStatusAndPriority(

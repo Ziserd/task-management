@@ -25,6 +25,13 @@ public interface TaskService {
 
     Page<TaskResponseDto> getTasks(Pageable pageable);
 
+    Page<TaskResponseDto> searchTasks(
+            String search,
+            TaskStatus status,
+            TaskPriority priority,
+            Pageable pageable
+    );
+
     Page<TaskResponseDto> getTasksByStatus(TaskStatus status, Pageable pageable);
 
     Page<TaskResponseDto> getTasksByPriority(TaskPriority priority, Pageable pageable);

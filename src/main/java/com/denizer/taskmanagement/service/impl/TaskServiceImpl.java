@@ -70,6 +70,40 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public Page<TaskResponseDto> searchTasks(
+            String search,
+            TaskStatus status,
+            TaskPriority priority,
+            Pageable pageable) {
+
+        User authenticatedUser = getAuthenticatedUser();
+
+        Page<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+
+            tasks = taskRepository.searchTasks(
+                    search,
+                    status,
+                    priority,
+                    pageable
+            );
+
+        } else {
+
+            tasks = taskRepository.searchTasksByUserId(
+                    authenticatedUser.getId(),
+                    search,
+                    status,
+                    priority,
+                    pageable
+            );
+        }
+
+        return tasks.map(this::convertToResponseDto);
+    }
+
+    @Override
     public TaskResponseDto getTaskById(Long id) {
 
         Task task = taskRepository.findById(id)
