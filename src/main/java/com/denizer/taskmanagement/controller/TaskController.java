@@ -7,8 +7,10 @@ import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
 
@@ -104,6 +106,26 @@ public class TaskController {
         taskService.deleteTask(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{taskId}/assign/{userId}")
+    public ResponseEntity<TaskResponseDto> assignTask(
+            @PathVariable Long taskId,
+            @PathVariable Long userId) {
+
+        TaskResponseDto response = taskService.assignTask(taskId, userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/assigned")
+    public ResponseEntity<Page<TaskResponseDto>> getAssignedTasks(
+            @PageableDefault(size = 10) Pageable pageable) {
+
+        return ResponseEntity.ok(
+                taskService.getAssignedTasks(pageable)
+        );
     }
 
 

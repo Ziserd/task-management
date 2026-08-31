@@ -41,4 +41,8 @@ public interface TaskService {
             TaskPriority priority,
             Pageable pageable
     );
+
+    TaskResponseDto assignTask(Long taskId, Long userId);
+
+    Page<TaskResponseDto> getAssignedTasks(Pageable pageable);
 }

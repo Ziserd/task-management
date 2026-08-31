@@ -31,4 +31,8 @@ public class TaskResponseDto {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private Long assignedUserId;
+
+    private String assignedUserEmail;
 }

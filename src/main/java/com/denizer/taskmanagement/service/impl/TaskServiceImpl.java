@@ -296,6 +296,22 @@ public class TaskServiceImpl implements TaskService {
         taskRepository.delete(task);
     }
 
+    @Override
+    public TaskResponseDto assignTask(Long taskId, Long userId) {
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        task.setAssignedUser(user);
+
+        Task savedTask = taskRepository.save(task);
+
+        return convertToResponseDto(savedTask);
+    }
+
     private TaskResponseDto convertToResponseDto(Task task) {
 
         return TaskResponseDto.builder()
@@ -308,6 +324,16 @@ public class TaskServiceImpl implements TaskService {
                 .userId(task.getUser().getId())
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
+                .assignedUserId(
+                    task.getAssignedUser() != null
+                        ? task.getAssignedUser().getId()
+                        : null
+                 )
+                .assignedUserEmail(
+                        task.getAssignedUser() != null
+                                ? task.getAssignedUser().getEmail()
+                                : null
+                )
                 .build();
     }
 
@@ -321,5 +347,16 @@ public class TaskServiceImpl implements TaskService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found."));
+    }
+
+    @Override
+    public Page<TaskResponseDto> getAssignedTasks(Pageable pageable) {
+
+        User user = getAuthenticatedUser();
+
+        Page<Task> tasks =
+                taskRepository.findByAssignedUserId(user.getId(), pageable);
+
+        return tasks.map(this::convertToResponseDto);
     }
 }

@@ -26,6 +26,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             TaskPriority priority,
             Pageable pageable
     );
+    Page<Task> findByAssignedUserId(Long userId, Pageable pageable);
     @Query("""
         SELECT t FROM Task t
         WHERE (:search IS NULL
