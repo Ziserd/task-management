@@ -7,6 +7,8 @@ import com.denizer.taskmanagement.entity.TaskStatus;
 import org.springframework.data.domain.Page;
 
 import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDate;
 import java.util.List;
 
 public interface TaskService {
@@ -29,6 +31,8 @@ public interface TaskService {
             String search,
             TaskStatus status,
             TaskPriority priority,
+            LocalDate dueBefore,
+            LocalDate dueAfter,
             Pageable pageable
     );
 

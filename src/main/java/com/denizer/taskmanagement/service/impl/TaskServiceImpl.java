@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -74,11 +75,19 @@ public class TaskServiceImpl implements TaskService {
             String search,
             TaskStatus status,
             TaskPriority priority,
+            LocalDate dueBefore,
+            LocalDate dueAfter,
             Pageable pageable) {
 
         User authenticatedUser = getAuthenticatedUser();
 
         Page<Task> tasks;
+
+        if (search == null) {
+            search = "";
+        }
+
+        if (dueBefore == null) { dueBefore = LocalDate.of(9999, 12, 31); } if (dueAfter == null) { dueAfter = LocalDate.of(1, 1, 1); }
 
         if (authenticatedUser.getRole().name().equals("ADMIN")) {
 
@@ -86,6 +95,8 @@ public class TaskServiceImpl implements TaskService {
                     search,
                     status,
                     priority,
+                    dueBefore,
+                    dueAfter,
                     pageable
             );
 
@@ -96,6 +107,8 @@ public class TaskServiceImpl implements TaskService {
                     search,
                     status,
                     priority,
+                    dueBefore,
+                    dueAfter,
                     pageable
             );
         }

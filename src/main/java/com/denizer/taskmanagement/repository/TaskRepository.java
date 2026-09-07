@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.time.LocalDate;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
@@ -28,17 +29,23 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     );
     Page<Task> findByAssignedUserId(Long userId, Pageable pageable);
     @Query("""
-        SELECT t FROM Task t
-        WHERE (:search IS NULL
-            OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%'))
-            OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%')))
-        AND (:status IS NULL OR t.status = :status)
-        AND (:priority IS NULL OR t.priority = :priority)
-        """)
+    SELECT t FROM Task t
+    WHERE (
+        :search = ''
+        OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%'))
+        OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%'))
+    )
+    AND (:status IS NULL OR t.status = :status)
+    AND (:priority IS NULL OR t.priority = :priority)
+    AND t.dueDate <= :dueBefore
+    AND t.dueDate >= :dueAfter
+    """)
     Page<Task> searchTasks(
             @Param("search") String search,
             @Param("status") TaskStatus status,
             @Param("priority") TaskPriority priority,
+            @Param("dueBefore") LocalDate dueBefore,
+            @Param("dueAfter") LocalDate dueAfter,
             Pageable pageable
     );
     @Query("""
@@ -49,12 +56,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%')))
         AND (:status IS NULL OR t.status = :status)
         AND (:priority IS NULL OR t.priority = :priority)
+        AND t.dueDate <= :dueBefore
+        AND t.dueDate >= :dueAfter
         """)
     Page<Task> searchTasksByUserId(
             @Param("userId") Long userId,
             @Param("search") String search,
             @Param("status") TaskStatus status,
             @Param("priority") TaskPriority priority,
+            @Param("dueBefore") LocalDate dueBefore,
+            @Param("dueAfter") LocalDate dueAfter,
             Pageable pageable
     );
 }

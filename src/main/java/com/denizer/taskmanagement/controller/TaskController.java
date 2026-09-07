@@ -14,6 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/tasks")
 public class TaskController {
@@ -53,13 +55,19 @@ public class TaskController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) LocalDate dueBefore,
+            @RequestParam(required = false) LocalDate dueAfter,
             Pageable pageable) {
 
-        if (search != null && !search.isBlank()) {
+        if (search != null && !search.isBlank()
+                || dueBefore != null
+                || dueAfter != null){
             return taskService.searchTasks(
                     search,
                     status,
                     priority,
+                    dueBefore,
+                    dueAfter,
                     pageable
             );
         }
