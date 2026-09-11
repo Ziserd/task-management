@@ -27,6 +27,8 @@ public interface TaskService {
 
     Page<TaskResponseDto> getTasks(Pageable pageable);
 
+    Page<TaskResponseDto> getOverdueTasks(Pageable pageable);
+
     Page<TaskResponseDto> searchTasks(
             String search,
             TaskStatus status,

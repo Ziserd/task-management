@@ -71,6 +71,36 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public Page<TaskResponseDto> getOverdueTasks(Pageable pageable) {
+
+        User authenticatedUser = getAuthenticatedUser();
+
+        LocalDate today = LocalDate.now();
+
+        Page<Task> tasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+
+            tasks = taskRepository.findByDueDateBeforeAndStatusNot(
+                    today,
+                    TaskStatus.COMPLETED,
+                    pageable
+            );
+
+        } else {
+
+            tasks = taskRepository.findByUserIdAndDueDateBeforeAndStatusNot(
+                    authenticatedUser.getId(),
+                    today,
+                    TaskStatus.COMPLETED,
+                    pageable
+            );
+        }
+
+        return tasks.map(this::convertToResponseDto);
+    }
+
+    @Override
     public Page<TaskResponseDto> searchTasks(
             String search,
             TaskStatus status,

@@ -28,6 +28,19 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             Pageable pageable
     );
     Page<Task> findByAssignedUserId(Long userId, Pageable pageable);
+
+    Page<Task> findByDueDateBeforeAndStatusNot(
+            LocalDate date,
+            TaskStatus status,
+            Pageable pageable
+    );
+
+    Page<Task> findByUserIdAndDueDateBeforeAndStatusNot(
+            Long userId,
+            LocalDate date,
+            TaskStatus status,
+            Pageable pageable
+    );
     @Query("""
     SELECT t FROM Task t
     WHERE (
@@ -68,4 +81,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("dueAfter") LocalDate dueAfter,
             Pageable pageable
     );
+
+
 }

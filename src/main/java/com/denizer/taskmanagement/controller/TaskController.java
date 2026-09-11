@@ -35,6 +35,14 @@ public class TaskController {
                 .body(taskService.createTask(request));
     }
 
+    @GetMapping("/overdue")
+    public ResponseEntity<Page<TaskResponseDto>> getOverdueTasks(
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(
+                taskService.getOverdueTasks(pageable)
+        );
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<TaskResponseDto> getTaskById(
             @PathVariable Long id) {
