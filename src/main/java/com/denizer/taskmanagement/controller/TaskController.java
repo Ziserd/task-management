@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.controller;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.dto.TaskStatisticsResponseDto;
 import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.service.TaskService;
@@ -141,6 +142,13 @@ public class TaskController {
 
         return ResponseEntity.ok(
                 taskService.getAssignedTasks(pageable)
+        );
+    }
+
+    @GetMapping("/statistics")
+    public ResponseEntity<TaskStatisticsResponseDto> getTaskStatistics() {
+        return ResponseEntity.ok(
+                taskService.getTaskStatistics()
         );
     }
 

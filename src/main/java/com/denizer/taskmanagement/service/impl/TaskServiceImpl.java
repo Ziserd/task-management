@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import com.denizer.taskmanagement.dto.TaskStatisticsResponseDto;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,6 +31,87 @@ public class TaskServiceImpl implements TaskService {
                            UserRepository userRepository) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+    }
+
+    @Override
+    public TaskStatisticsResponseDto getTaskStatistics() {
+
+        User authenticatedUser = getAuthenticatedUser();
+
+        long totalTasks;
+        long todoTasks;
+        long pendingTasks;
+        long inProgressTasks;
+        long completedTasks;
+        long overdueTasks;
+
+        if (authenticatedUser.getRole().name().equals("ADMIN")) {
+
+            totalTasks = taskRepository.count();
+
+            todoTasks = taskRepository.countByStatus(
+                    TaskStatus.TODO
+            );
+
+            pendingTasks = taskRepository.countByStatus(
+                    TaskStatus.PENDING
+            );
+
+            inProgressTasks = taskRepository.countByStatus(
+                    TaskStatus.IN_PROGRESS
+            );
+
+            completedTasks = taskRepository.countByStatus(
+                    TaskStatus.COMPLETED
+            );
+
+            overdueTasks = taskRepository.countByDueDateBeforeAndStatusNot(
+                    LocalDate.now(),
+                    TaskStatus.COMPLETED
+            );
+
+        } else {
+
+            Long userId = authenticatedUser.getId();
+
+            totalTasks = taskRepository.countByUserId(userId);
+
+            todoTasks = taskRepository.countByUserIdAndStatus(
+                    userId,
+                    TaskStatus.TODO
+            );
+
+            pendingTasks = taskRepository.countByUserIdAndStatus(
+                    userId,
+                    TaskStatus.PENDING
+            );
+
+            inProgressTasks = taskRepository.countByUserIdAndStatus(
+                    userId,
+                    TaskStatus.IN_PROGRESS
+            );
+
+            completedTasks = taskRepository.countByUserIdAndStatus(
+                    userId,
+                    TaskStatus.COMPLETED
+            );
+
+            overdueTasks = taskRepository
+                    .countByUserIdAndDueDateBeforeAndStatusNot(
+                            userId,
+                            LocalDate.now(),
+                            TaskStatus.COMPLETED
+                    );
+        }
+
+        return new TaskStatisticsResponseDto(
+                totalTasks,
+                todoTasks,
+                pendingTasks,
+                inProgressTasks,
+                completedTasks,
+                overdueTasks
+        );
     }
 
     @Override

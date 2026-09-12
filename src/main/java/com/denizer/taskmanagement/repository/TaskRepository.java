@@ -14,6 +14,22 @@ import java.time.LocalDate;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
+    long countByStatus(TaskStatus status);
+
+    long countByUserIdAndStatus(Long userId, TaskStatus status);
+
+    long countByUserId(Long userId);
+
+    long countByDueDateBeforeAndStatusNot(
+            LocalDate date,
+            TaskStatus status
+    );
+
+    long countByUserIdAndDueDateBeforeAndStatusNot(
+            Long userId,
+            LocalDate date,
+            TaskStatus status
+    );
     List<Task> findByUserId(Long userId);
     Page<Task> findByUserId(Long userId, Pageable pageable);
     Page<Task> findByStatus(TaskStatus status, Pageable pageable);

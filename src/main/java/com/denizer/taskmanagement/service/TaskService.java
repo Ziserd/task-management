@@ -2,6 +2,7 @@ package com.denizer.taskmanagement.service;
 
 import com.denizer.taskmanagement.dto.TaskRequestDto;
 import com.denizer.taskmanagement.dto.TaskResponseDto;
+import com.denizer.taskmanagement.dto.TaskStatisticsResponseDto;
 import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import org.springframework.data.domain.Page;
@@ -12,6 +13,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface TaskService {
+
+    TaskStatisticsResponseDto getTaskStatistics();
 
     TaskResponseDto createTask(TaskRequestDto request);
 
