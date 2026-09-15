@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import com.denizer.taskmanagement.dto.TaskStatisticsResponseDto;
+import com.denizer.taskmanagement.service.TaskActivityService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,11 +27,14 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final TaskActivityService taskActivityService;
 
     public TaskServiceImpl(TaskRepository taskRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           TaskActivityService taskActivityService) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
+        this.taskActivityService = taskActivityService;
     }
 
     @Override
@@ -129,6 +133,14 @@ public class TaskServiceImpl implements TaskService {
                 .build();
 
         Task savedTask = taskRepository.save(task);
+
+        taskActivityService.logActivity(
+                savedTask.getId(),
+                user.getId(),
+                "TASK_CREATED",
+                null,
+                null
+        );
 
         return convertToResponseDto(savedTask);
     }
@@ -390,6 +402,12 @@ public class TaskServiceImpl implements TaskService {
             );
         }
 
+        TaskStatus oldStatus = task.getStatus();
+        TaskPriority oldPriority = task.getPriority();
+        String oldTitle = task.getTitle();
+        String oldDescription = task.getDescription();
+        LocalDate oldDueDate = task.getDueDate();
+
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setStatus(request.getStatus());
@@ -397,6 +415,56 @@ public class TaskServiceImpl implements TaskService {
         task.setDueDate(request.getDueDate());
 
         Task updatedTask = taskRepository.save(task);
+
+        if (oldPriority != request.getPriority()) {
+            taskActivityService.logActivity(
+                    updatedTask.getId(),
+                    user.getId(),
+                    "PRIORITY_CHANGED",
+                    oldPriority.name(),
+                    request.getPriority().name()
+            );
+        }
+
+        if (oldStatus != request.getStatus()) {
+            taskActivityService.logActivity(
+                    updatedTask.getId(),
+                    user.getId(),
+                    "STATUS_CHANGED",
+                    oldStatus.name(),
+                    request.getStatus().name()
+            );
+        }
+
+        if (!oldTitle.equals(request.getTitle())) {
+            taskActivityService.logActivity(
+                    updatedTask.getId(),
+                    user.getId(),
+                    "TASK_UPDATED",
+                    oldTitle,
+                    request.getTitle()
+            );
+        }
+
+        if (!oldDescription.equals(request.getDescription())) {
+            taskActivityService.logActivity(
+                    updatedTask.getId(),
+                    user.getId(),
+                    "TASK_UPDATED",
+                    oldDescription,
+                    request.getDescription()
+            );
+        }
+
+        if (!oldDueDate.equals(request.getDueDate())) {
+            taskActivityService.logActivity(
+                    updatedTask.getId(),
+                    user.getId(),
+                    "TASK_UPDATED",
+                    oldDueDate.toString(),
+                    request.getDueDate().toString()
+            );
+        }
 
         return convertToResponseDto(updatedTask);
     }
@@ -418,6 +486,14 @@ public class TaskServiceImpl implements TaskService {
             );
         }
 
+        taskActivityService.logActivity(
+                task.getId(),
+                user.getId(),
+                "TASK_DELETED",
+                task.getTitle(),
+                null
+        );
+
         taskRepository.delete(task);
     }
 
@@ -430,9 +506,23 @@ public class TaskServiceImpl implements TaskService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        User authenticatedUser = getAuthenticatedUser();
+
+        Long oldAssignedUserId = task.getAssignedUser() != null
+                ? task.getAssignedUser().getId()
+                : null;
+
         task.setAssignedUser(user);
 
         Task savedTask = taskRepository.save(task);
+
+        taskActivityService.logActivity(
+                savedTask.getId(),
+                authenticatedUser.getId(),
+                "TASK_ASSIGNED",
+                oldAssignedUserId != null ? oldAssignedUserId.toString() : null,
+                user.getId().toString()
+        );
 
         return convertToResponseDto(savedTask);
     }
