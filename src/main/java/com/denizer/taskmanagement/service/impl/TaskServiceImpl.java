@@ -10,6 +10,7 @@ import com.denizer.taskmanagement.exception.ForbiddenException;
 import com.denizer.taskmanagement.exception.ResourceNotFoundException;
 import com.denizer.taskmanagement.repository.TaskRepository;
 import com.denizer.taskmanagement.repository.UserRepository;
+import com.denizer.taskmanagement.service.NotificationService;
 import com.denizer.taskmanagement.service.TaskService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,13 +29,16 @@ public class TaskServiceImpl implements TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TaskActivityService taskActivityService;
+    private final NotificationService notificationService;
 
     public TaskServiceImpl(TaskRepository taskRepository,
                            UserRepository userRepository,
-                           TaskActivityService taskActivityService) {
+                           TaskActivityService taskActivityService,
+                           NotificationService notificationService) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
         this.taskActivityService = taskActivityService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -434,6 +438,14 @@ public class TaskServiceImpl implements TaskService {
                     oldStatus.name(),
                     request.getStatus().name()
             );
+            if (updatedTask.getAssignedUser() != null) {
+                notificationService.createNotification(
+                        updatedTask.getAssignedUser(),
+                        "Task '" + updatedTask.getTitle()
+                                + "' status changed to "
+                                + request.getStatus().name() + "."
+                );
+            }
         }
 
         if (!oldTitle.equals(request.getTitle())) {
@@ -522,6 +534,11 @@ public class TaskServiceImpl implements TaskService {
                 "TASK_ASSIGNED",
                 oldAssignedUserId != null ? oldAssignedUserId.toString() : null,
                 user.getId().toString()
+        );
+
+        notificationService.createNotification(
+                user,
+                "Task '" + task.getTitle() + "' has been assigned to you."
         );
 
         return convertToResponseDto(savedTask);

@@ -98,5 +98,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             Pageable pageable
     );
 
+    List<Task> findByDueDateAndStatusNot(
+            LocalDate dueDate,
+            TaskStatus status
+    );
+
 
 }
