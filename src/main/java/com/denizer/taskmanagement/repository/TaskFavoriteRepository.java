@@ -14,4 +14,6 @@ public interface TaskFavoriteRepository extends JpaRepository<TaskFavorite, Long
     boolean existsByUserIdAndTaskId(Long userId, Long taskId);
 
     Page<TaskFavorite> findByUserId(Long userId, Pageable pageable);
+
+    long countByUserId(Long userId);
 }

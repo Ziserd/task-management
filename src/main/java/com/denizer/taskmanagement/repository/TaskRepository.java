@@ -103,5 +103,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             TaskStatus status
     );
 
+    long countByUserIdAndPriority(Long userId, TaskPriority priority);
+
 
 }
