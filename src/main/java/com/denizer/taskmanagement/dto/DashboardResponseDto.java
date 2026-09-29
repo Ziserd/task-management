@@ -2,6 +2,8 @@ package com.denizer.taskmanagement.dto;
 
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,4 +32,8 @@ public class DashboardResponseDto {
     private long unreadNotifications;
 
     private long favoriteTasks;
+
+    private List<UpcomingTaskDto> upcomingTasks;
+
+    private List<RecentActivityDto> recentActivities;
 }

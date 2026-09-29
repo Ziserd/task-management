@@ -8,4 +8,6 @@ import java.util.List;
 public interface TaskActivityRepository extends JpaRepository<TaskActivity, Long> {
 
     List<TaskActivity> findByTaskIdOrderByCreatedAtDesc(Long taskId);
+
+    List<TaskActivity> findByUserIdOrderByCreatedAtDesc(Long userId);
 }
