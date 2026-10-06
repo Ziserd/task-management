@@ -17,6 +17,9 @@ import java.util.List;
 import com.denizer.taskmanagement.dto.RecentActivityDto;
 import com.denizer.taskmanagement.entity.TaskActivity;
 
+import com.denizer.taskmanagement.dto.RecentNotificationDto;
+import com.denizer.taskmanagement.entity.Notification;
+
 import java.time.LocalDate;
 
 @Service
@@ -110,6 +113,13 @@ public class DashboardServiceImpl implements DashboardService {
                 .map(this::mapToRecentActivityDto)
                 .toList();
 
+        List<RecentNotificationDto> recentNotifications =
+                notificationRepository
+                        .findTop5ByUserIdOrderByCreatedAtDesc(userId)
+                        .stream()
+                        .map(this::mapToRecentNotificationDto)
+                        .toList();
+
         return DashboardResponseDto.builder()
                 .totalTasks(totalTasks)
                 .todoTasks(todoTasks)
@@ -122,6 +132,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .lowPriorityTasks(lowPriorityTasks)
                 .upcomingTasks(upcomingTasks)
                 .recentActivities(recentActivities)
+                .recentNotifications(recentNotifications)
                 .unreadNotifications(unreadNotifications)
                 .favoriteTasks(favoriteTasks)
                 .build();
@@ -152,6 +163,17 @@ public class DashboardServiceImpl implements DashboardService {
                 .oldValue(activity.getOldValue())
                 .newValue(activity.getNewValue())
                 .createdAt(activity.getCreatedAt())
+                .build();
+    }
+
+    private RecentNotificationDto mapToRecentNotificationDto(
+            Notification notification) {
+
+        return RecentNotificationDto.builder()
+                .id(notification.getId())
+                .message(notification.getMessage())
+                .read(notification.isRead())
+                .createdAt(notification.getCreatedAt())
                 .build();
     }
 

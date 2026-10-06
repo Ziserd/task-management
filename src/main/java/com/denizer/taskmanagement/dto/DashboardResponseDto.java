@@ -36,4 +36,6 @@ public class DashboardResponseDto {
     private List<UpcomingTaskDto> upcomingTasks;
 
     private List<RecentActivityDto> recentActivities;
+
+    private List<RecentNotificationDto> recentNotifications;
 }
