@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -968,6 +969,217 @@ class TaskServiceImplTest {
                         eq(TaskStatus.COMPLETED),
                         eq(pageable)
                 );
+    }
+
+    @Test
+    void shouldSearchTasksSuccessfully() {
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("Spring Boot Task")
+                .description("Implement REST API")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.searchTasksByUserId(
+                eq(user.getId()),
+                eq("Spring"),
+                isNull(),
+                isNull(),
+                eq(LocalDate.of(9999, 12, 31)),
+                eq(LocalDate.of(1, 1, 1)),
+                eq(pageable)
+        )).thenReturn(taskPage);
+
+        Page<TaskResponseDto> response = taskService.searchTasks(
+                "Spring",
+                null,
+                null,
+                null,
+                null,
+                pageable
+        );
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals("Spring Boot Task",
+                response.getContent().get(0).getTitle());
+        assertEquals(TaskStatus.IN_PROGRESS,
+                response.getContent().get(0).getStatus());
+
+        verify(taskRepository).searchTasksByUserId(
+                eq(user.getId()),
+                eq("Spring"),
+                isNull(),
+                isNull(),
+                eq(LocalDate.of(9999, 12, 31)),
+                eq(LocalDate.of(1, 1, 1)),
+                eq(pageable)
+        );
+    }
+
+    @Test
+    void shouldSearchTasksWithMultipleFilters() {
+
+        LocalDate dueAfter = LocalDate.now();
+        LocalDate dueBefore = LocalDate.now().plusDays(10);
+
+        Task task = Task.builder()
+                .id(2L)
+                .title("Spring Boot Task")
+                .description("Implement REST API")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.searchTasksByUserId(
+                eq(user.getId()),
+                eq("Spring"),
+                eq(TaskStatus.IN_PROGRESS),
+                eq(TaskPriority.HIGH),
+                eq(dueBefore),
+                eq(dueAfter),
+                eq(pageable)
+        )).thenReturn(taskPage);
+
+        Page<TaskResponseDto> response = taskService.searchTasks(
+                "Spring",
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                dueBefore,
+                dueAfter,
+                pageable
+        );
+
+        assertEquals(1, response.getTotalElements());
+
+        TaskResponseDto result = response.getContent().get(0);
+
+        assertEquals("Spring Boot Task", result.getTitle());
+        assertEquals(TaskStatus.IN_PROGRESS, result.getStatus());
+        assertEquals(TaskPriority.HIGH, result.getPriority());
+        assertTrue(result.getDueDate().isAfter(dueAfter)
+                || result.getDueDate().isEqual(dueAfter));
+        assertTrue(result.getDueDate().isBefore(dueBefore)
+                || result.getDueDate().isEqual(dueBefore));
+
+        verify(taskRepository).searchTasksByUserId(
+                eq(user.getId()),
+                eq("Spring"),
+                eq(TaskStatus.IN_PROGRESS),
+                eq(TaskPriority.HIGH),
+                eq(dueBefore),
+                eq(dueAfter),
+                eq(pageable)
+        );
+    }
+
+    @Test
+    void shouldSearchTasksForAdmin() {
+
+        User admin = User.builder()
+                .id(99L)
+                .email("admin@example.com")
+                .firstName("Admin")
+                .lastName("User")
+                .role(Role.ADMIN)
+                .build();
+
+        Task task = Task.builder()
+                .id(3L)
+                .title("Admin Search Task")
+                .description("Task created by another user")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        admin.getEmail(), null
+                )
+        );
+
+        when(userRepository.findByEmail(admin.getEmail()))
+                .thenReturn(java.util.Optional.of(admin));
+
+        when(taskRepository.searchTasks(
+                eq("Admin"),
+                isNull(),
+                isNull(),
+                eq(LocalDate.of(9999, 12, 31)),
+                eq(LocalDate.of(1, 1, 1)),
+                eq(pageable)
+        )).thenReturn(taskPage);
+
+        Page<TaskResponseDto> response = taskService.searchTasks(
+                "Admin",
+                null,
+                null,
+                null,
+                null,
+                pageable
+        );
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                "Admin Search Task",
+                response.getContent().get(0).getTitle()
+        );
+
+        verify(taskRepository).searchTasks(
+                eq("Admin"),
+                isNull(),
+                isNull(),
+                eq(LocalDate.of(9999, 12, 31)),
+                eq(LocalDate.of(1, 1, 1)),
+                eq(pageable)
+        );
+
+        verify(taskRepository, never()).searchTasksByUserId(
+                anyLong(),
+                anyString(),
+                any(),
+                any(),
+                any(LocalDate.class),
+                any(LocalDate.class),
+                any(Pageable.class)
+        );
     }
 
 }
