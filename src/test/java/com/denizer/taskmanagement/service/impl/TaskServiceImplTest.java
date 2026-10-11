@@ -9,6 +9,7 @@ import com.denizer.taskmanagement.entity.TaskPriority;
 import com.denizer.taskmanagement.entity.TaskStatus;
 import com.denizer.taskmanagement.entity.User;
 import com.denizer.taskmanagement.exception.ForbiddenException;
+import com.denizer.taskmanagement.exception.ResourceNotFoundException;
 import com.denizer.taskmanagement.repository.TaskRepository;
 import com.denizer.taskmanagement.repository.UserRepository;
 import com.denizer.taskmanagement.service.NotificationService;
@@ -33,6 +34,8 @@ import static org.mockito.Mockito.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceImplTest {
@@ -1179,6 +1182,717 @@ class TaskServiceImplTest {
                 any(LocalDate.class),
                 any(LocalDate.class),
                 any(Pageable.class)
+        );
+    }
+
+    @Test
+    void shouldGetOwnTasksSuccessfully() {
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("My Task")
+                .description("My task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByUserId(user.getId(), pageable))
+                .thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasks(pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(1, response.getContent().size());
+        assertEquals("My Task", response.getContent().get(0).getTitle());
+        assertEquals(user.getId(), response.getContent().get(0).getUserId());
+
+        verify(taskRepository).findByUserId(user.getId(), pageable);
+        verify(taskRepository, never()).findAll(pageable);
+    }
+
+    @Test
+    void shouldGetAllTasksForAdminSuccessfully() {
+
+        User admin = User.builder()
+                .id(99L)
+                .email("admin@example.com")
+                .firstName("Admin")
+                .lastName("User")
+                .role(Role.ADMIN)
+                .build();
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("Task Created By User")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        admin.getEmail(), null
+                )
+        );
+
+        when(userRepository.findByEmail(admin.getEmail()))
+                .thenReturn(java.util.Optional.of(admin));
+
+        when(taskRepository.findAll(pageable))
+                .thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasks(pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                "Task Created By User",
+                response.getContent().get(0).getTitle()
+        );
+
+        verify(taskRepository).findAll(pageable);
+
+        verify(taskRepository, never())
+                .findByUserId(anyLong(), eq(pageable));
+    }
+
+    @Test
+    void shouldGetAllOwnTasksSuccessfully() {
+
+        Task task1 = Task.builder()
+                .id(1L)
+                .title("My First Task")
+                .description("First task")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(3))
+                .user(user)
+                .build();
+
+        Task task2 = Task.builder()
+                .id(2L)
+                .title("My Second Task")
+                .description("Second task")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByUserId(user.getId()))
+                .thenReturn(java.util.List.of(task1, task2));
+
+        List<TaskResponseDto> response = taskService.getAllTasks();
+
+        assertEquals(2, response.size());
+        assertEquals("My First Task", response.get(0).getTitle());
+        assertEquals("My Second Task", response.get(1).getTitle());
+
+        verify(taskRepository).findByUserId(user.getId());
+        verify(taskRepository, never()).findAll();
+    }
+
+    @Test
+    void shouldGetAllTasksForAdminWithoutPagination() {
+
+        User admin = User.builder()
+                .id(99L)
+                .email("admin@example.com")
+                .firstName("Admin")
+                .lastName("User")
+                .role(Role.ADMIN)
+                .build();
+
+        Task task1 = Task.builder()
+                .id(1L)
+                .title("User One Task")
+                .description("First task")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(3))
+                .user(user)
+                .build();
+
+        Task task2 = Task.builder()
+                .id(2L)
+                .title("User Two Task")
+                .description("Second task")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(User.builder()
+                        .id(2L)
+                        .email("another@example.com")
+                        .firstName("Another")
+                        .lastName("User")
+                        .role(Role.USER)
+                        .build())
+                .build();
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        admin.getEmail(), null
+                )
+        );
+
+        when(userRepository.findByEmail(admin.getEmail()))
+                .thenReturn(java.util.Optional.of(admin));
+
+        when(taskRepository.findAll())
+                .thenReturn(java.util.List.of(task1, task2));
+
+        List<TaskResponseDto> response = taskService.getAllTasks();
+
+        assertEquals(2, response.size());
+        assertEquals("User One Task", response.get(0).getTitle());
+        assertEquals("User Two Task", response.get(1).getTitle());
+
+        verify(taskRepository).findAll();
+        verify(taskRepository, never()).findByUserId(anyLong());
+    }
+
+    @Test
+    void shouldGetTasksByUserIdSuccessfully() {
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("My Task By User ID")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByUserId(user.getId(), pageable))
+                .thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasksByUserId(user.getId(), pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                "My Task By User ID",
+                response.getContent().get(0).getTitle()
+        );
+
+        verify(taskRepository).findByUserId(user.getId(), pageable);
+    }
+
+
+    @Test
+    void shouldNotGetTasksByAnotherUserId() {
+
+        Long anotherUserId = 2L;
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> taskService.getTasksByUserId(anotherUserId, pageable)
+        );
+
+        verify(taskRepository, never())
+                .findByUserId(anotherUserId, pageable);
+    }
+
+
+    @Test
+    void shouldGetTasksByStatusForAdminSuccessfully() {
+
+        user.setRole(Role.ADMIN);
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("Admin Task")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByStatus(TaskStatus.TODO, pageable))
+                .thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasksByStatus(TaskStatus.TODO, pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                TaskStatus.TODO,
+                response.getContent().get(0).getStatus()
+        );
+
+        verify(taskRepository).findByStatus(TaskStatus.TODO, pageable);
+
+        verify(taskRepository, never())
+                .findByUserIdAndStatus(anyLong(), eq(TaskStatus.TODO), eq(pageable));
+    }
+
+
+    @Test
+    void shouldGetTasksByPriorityForAdminSuccessfully() {
+
+        user.setRole(Role.ADMIN);
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("Admin High Priority Task")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByPriority(TaskPriority.HIGH, pageable))
+                .thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasksByPriority(TaskPriority.HIGH, pageable);
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                TaskPriority.HIGH,
+                response.getContent().get(0).getPriority()
+        );
+
+        verify(taskRepository)
+                .findByPriority(TaskPriority.HIGH, pageable);
+
+        verify(taskRepository, never())
+                .findByUserIdAndPriority(
+                        anyLong(),
+                        eq(TaskPriority.HIGH),
+                        eq(pageable)
+                );
+    }
+
+
+    @Test
+    void shouldGetTasksByStatusAndPriorityForAdminSuccessfully() {
+
+        user.setRole(Role.ADMIN);
+
+        Task task = Task.builder()
+                .id(1L)
+                .title("Admin Filtered Task")
+                .description("Task description")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        PageImpl<Task> taskPage = new PageImpl<>(
+                java.util.List.of(task),
+                pageable,
+                1
+        );
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByStatusAndPriority(
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                pageable
+        )).thenReturn(taskPage);
+
+        Page<TaskResponseDto> response =
+                taskService.getTasksByStatusAndPriority(
+                        TaskStatus.IN_PROGRESS,
+                        TaskPriority.HIGH,
+                        pageable
+                );
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals(
+                TaskStatus.IN_PROGRESS,
+                response.getContent().get(0).getStatus()
+        );
+        assertEquals(
+                TaskPriority.HIGH,
+                response.getContent().get(0).getPriority()
+        );
+
+        verify(taskRepository).findByStatusAndPriority(
+                TaskStatus.IN_PROGRESS,
+                TaskPriority.HIGH,
+                pageable
+        );
+
+        verify(taskRepository, never())
+                .findByUserIdAndStatusAndPriority(
+                        anyLong(),
+                        eq(TaskStatus.IN_PROGRESS),
+                        eq(TaskPriority.HIGH),
+                        eq(pageable)
+                );
+    }
+
+
+    @Test
+    void shouldReturnEmptyPageWhenNoTasksAreAssigned() {
+
+        PageRequest pageable = PageRequest.of(0, 10);
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findByAssignedUserId(user.getId(), pageable))
+                .thenReturn(new PageImpl<>(java.util.List.of(), pageable, 0));
+
+        Page<TaskResponseDto> response =
+                taskService.getAssignedTasks(pageable);
+
+        assertEquals(0, response.getTotalElements());
+        assertTrue(response.getContent().isEmpty());
+
+        verify(taskRepository)
+                .findByAssignedUserId(user.getId(), pageable);
+    }
+
+
+    @Test
+    void shouldAllowAdminToGetAnotherUsersTask() {
+
+        user.setRole(Role.ADMIN);
+
+        User anotherUser = User.builder()
+                .id(2L)
+                .email("another@example.com")
+                .firstName("Another")
+                .lastName("User")
+                .role(Role.USER)
+                .build();
+
+        Task task = Task.builder()
+                .id(10L)
+                .title("Another User Task")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(anotherUser)
+                .build();
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        when(taskRepository.findById(10L))
+                .thenReturn(java.util.Optional.of(task));
+
+        TaskResponseDto response = taskService.getTaskById(10L);
+
+        assertEquals(10L, response.getId());
+        assertEquals("Another User Task", response.getTitle());
+
+        verify(taskRepository).findById(10L);
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenTaskDoesNotExist() {
+
+        when(taskRepository.findById(999L))
+                .thenReturn(java.util.Optional.empty());
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> taskService.getTaskById(999L)
+        );
+
+        assertEquals("Task not found.", exception.getMessage());
+
+        verify(taskRepository).findById(999L);
+
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+
+    @Test
+    void shouldThrowForbiddenExceptionWhenAccessingAnotherUsersTask() {
+
+        User anotherUser = User.builder()
+                .id(2L)
+                .email("another@example.com")
+                .firstName("Another")
+                .lastName("User")
+                .role(Role.USER)
+                .build();
+
+        Task task = Task.builder()
+                .id(20L)
+                .title("Another User Task")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(anotherUser)
+                .build();
+
+        when(taskRepository.findById(20L))
+                .thenReturn(java.util.Optional.of(task));
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        ForbiddenException exception = assertThrows(
+                ForbiddenException.class,
+                () -> taskService.getTaskById(20L)
+        );
+
+        assertEquals(
+                "You are not allowed to access this task.",
+                exception.getMessage()
+        );
+
+        verify(taskRepository).findById(20L);
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenUpdatingNonExistingTask() {
+
+        Long taskId = 999L;
+
+        TaskRequestDto request = TaskRequestDto.builder()
+                .title("Updated Task")
+                .description("Updated description")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(10))
+                .build();
+
+        when(taskRepository.findById(taskId))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> taskService.updateTask(taskId, request)
+        );
+
+        verify(taskRepository).findById(taskId);
+        verify(taskRepository, never()).save(any(Task.class));
+    }
+
+
+    @Test
+    void shouldNotUpdateAnotherUsersTask() {
+
+        User anotherUser = User.builder()
+                .id(2L)
+                .email("another@example.com")
+                .firstName("Another")
+                .lastName("User")
+                .role(Role.USER)
+                .build();
+
+        Task task = Task.builder()
+                .id(20L)
+                .title("Original Task")
+                .description("Original description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(anotherUser)
+                .build();
+
+        TaskRequestDto request = TaskRequestDto.builder()
+                .title("Updated Task")
+                .description("Updated description")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(10))
+                .build();
+
+        when(taskRepository.findById(20L))
+                .thenReturn(java.util.Optional.of(task));
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> taskService.updateTask(20L, request)
+        );
+
+        verify(taskRepository).findById(20L);
+        verify(taskRepository, never()).save(any(Task.class));
+    }
+
+
+    @Test
+    void shouldLogActivityWhenDeletingTask() {
+
+        Task task = Task.builder()
+                .id(35L)
+                .title("Task To Delete")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(user)
+                .build();
+
+        when(taskRepository.findById(35L))
+                .thenReturn(java.util.Optional.of(task));
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        taskService.deleteTask(35L);
+
+        verify(taskActivityService).logActivity(
+                35L,
+                user.getId(),
+                "TASK_DELETED",
+                "Task To Delete",
+                null
+        );
+
+        verify(taskRepository).delete(task);
+    }
+
+
+    @Test
+    void shouldNotDeleteAnotherUsersTaskOrLogActivity() {
+
+        User anotherUser = User.builder()
+                .id(2L)
+                .email("another@example.com")
+                .firstName("Another")
+                .lastName("User")
+                .role(Role.USER)
+                .build();
+
+        Task task = Task.builder()
+                .id(36L)
+                .title("Another User Task")
+                .description("Task description")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(5))
+                .user(anotherUser)
+                .build();
+
+        when(taskRepository.findById(36L))
+                .thenReturn(java.util.Optional.of(task));
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.of(user));
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> taskService.deleteTask(36L)
+        );
+
+        verify(taskActivityService, never()).logActivity(
+                anyLong(),
+                anyLong(),
+                anyString(),
+                any(),
+                any()
+        );
+
+        verify(taskRepository, never()).delete(any(Task.class));
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenAssigningUserToNonExistingTask() {
+
+        Long taskId = 999L;
+        Long userId = 2L;
+
+        when(taskRepository.findById(taskId))
+                .thenReturn(java.util.Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> taskService.assignTask(taskId, userId)
+        );
+
+        assertEquals("Task not found", exception.getMessage());
+
+        verify(taskRepository).findById(taskId);
+
+        verify(userRepository, never()).findById(userId);
+
+        verify(taskRepository, never()).save(any(Task.class));
+
+        verify(taskActivityService, never()).logActivity(
+                anyLong(),
+                anyLong(),
+                anyString(),
+                any(),
+                any()
         );
     }
 
