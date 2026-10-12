@@ -194,4 +194,159 @@ class NotificationServiceImplTest {
         );
     }
 
+
+    @Test
+    void shouldThrowExceptionWhenNotificationDoesNotExist() {
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        when(notificationRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> notificationService.markAsRead(999L)
+        );
+
+        assertEquals(
+                "Notification not found",
+                exception.getMessage()
+        );
+
+        verify(userRepository).findByEmail(user.getEmail());
+        verify(notificationRepository).findById(999L);
+
+        verify(notificationRepository, never())
+                .save(any(Notification.class));
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenAuthenticatedUserDoesNotExist() {
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> notificationService.getMyNotifications(
+                        PageRequest.of(0, 10)
+                )
+        );
+
+        assertEquals("User not found", exception.getMessage());
+
+        verify(userRepository).findByEmail(user.getEmail());
+
+        verifyNoInteractions(notificationRepository);
+    }
+
+
+    @Test
+    void shouldReturnEmptyPageWhenUserHasNoNotifications() {
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        when(notificationRepository
+                .findByUserIdOrderByCreatedAtDesc(user.getId(), pageable))
+                .thenReturn(Page.empty(pageable));
+
+        Page<NotificationResponseDto> result =
+                notificationService.getMyNotifications(pageable);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+        assertEquals(0, result.getTotalPages());
+
+        verify(userRepository).findByEmail(user.getEmail());
+
+        verify(notificationRepository)
+                .findByUserIdOrderByCreatedAtDesc(
+                        user.getId(),
+                        pageable
+                );
+    }
+
+
+    @Test
+    void shouldMarkAlreadyReadNotificationAsReadSuccessfully() {
+
+        Notification notification = new Notification();
+        notification.setId(3L);
+        notification.setUser(user);
+        notification.setMessage("Already read notification");
+        notification.setRead(true);
+        notification.setCreatedAt(LocalDateTime.now());
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.of(user));
+
+        when(notificationRepository.findById(3L))
+                .thenReturn(Optional.of(notification));
+
+        assertDoesNotThrow(
+                () -> notificationService.markAsRead(3L)
+        );
+
+        assertTrue(notification.isRead());
+
+        verify(userRepository).findByEmail(user.getEmail());
+        verify(notificationRepository).findById(3L);
+        verify(notificationRepository).save(notification);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenCreatingNotificationWithEmptyMessage() {
+
+        String message = "";
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.createNotification(user, message)
+        );
+
+        assertEquals(
+                "Notification message cannot be empty",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(notificationRepository);
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenCreatingNotificationWithNullMessage() {
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.createNotification(user, null)
+        );
+
+        assertEquals(
+                "Notification message cannot be empty",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(notificationRepository);
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenCreatingNotificationWithNullUser() {
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.createNotification(null, "Test notification")
+        );
+
+        assertEquals("User cannot be null", exception.getMessage());
+
+        verifyNoInteractions(notificationRepository);
+    }
+
 }

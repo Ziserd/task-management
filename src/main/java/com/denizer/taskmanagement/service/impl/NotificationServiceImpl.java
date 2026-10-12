@@ -68,8 +68,17 @@ public class NotificationServiceImpl implements NotificationService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+
     @Override
     public void createNotification(User user, String message) {
+
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Notification message cannot be empty");
+        }
 
         Notification notification = new Notification();
 
