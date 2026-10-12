@@ -149,4 +149,88 @@ class TaskFavoriteServiceImplTest {
 
         verify(taskFavoriteRepository).findByUserId(1L, pageable);
     }
+
+
+    @Test
+    void shouldThrowExceptionWhenTaskDoesNotExist() {
+
+        when(taskRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> taskFavoriteService.addFavorite(99L)
+        );
+
+        assertEquals("Task not found", exception.getMessage());
+
+        verify(taskFavoriteRepository, never())
+                .save(any(TaskFavorite.class));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenFavoriteDoesNotExist() {
+
+        when(taskFavoriteRepository.findByUserIdAndTaskId(1L, 99L))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> taskFavoriteService.removeFavorite(99L)
+        );
+
+        assertEquals("Task is not in favorites", exception.getMessage());
+
+        verify(taskFavoriteRepository, never())
+                .delete(any(TaskFavorite.class));
+    }
+
+    @Test
+    void shouldReturnEmptyPageWhenUserHasNoFavorites() {
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(taskFavoriteRepository.findByUserId(1L, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        Page<TaskResponseDto> result =
+                taskFavoriteService.getMyFavorites(pageable);
+
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+
+        verify(taskFavoriteRepository).findByUserId(1L, pageable);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenAuthenticatedUserDoesNotExist() {
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> taskFavoriteService.getMyFavorites(PageRequest.of(0, 10))
+        );
+
+        assertEquals("User not found", exception.getMessage());
+
+        verifyNoInteractions(taskFavoriteRepository);
+    }
+
+    @Test
+    void shouldAddFavoriteWhenTaskHasNoAssignedUser() {
+
+        task.setAssignedUser(null);
+
+        when(taskRepository.findById(10L))
+                .thenReturn(Optional.of(task));
+
+        when(taskFavoriteRepository.existsByUserIdAndTaskId(1L, 10L))
+                .thenReturn(false);
+
+        taskFavoriteService.addFavorite(10L);
+
+        verify(taskFavoriteRepository).save(any(TaskFavorite.class));
+    }
 }
