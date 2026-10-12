@@ -13,8 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import com.denizer.taskmanagement.dto.DashboardResponseDto;
 import com.denizer.taskmanagement.entity.Task;
@@ -393,5 +393,198 @@ class DashboardServiceImplTest {
         );
         assertEquals(false, recentNotification.isRead());
         assertEquals(createdAt, recentNotification.getCreatedAt());
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenAuthenticatedUserDoesNotExist() {
+
+        when(userRepository.findByEmail(user.getEmail()))
+                .thenReturn(java.util.Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> dashboardService.getDashboard()
+        );
+
+        assertEquals("User not found", exception.getMessage());
+
+        verifyNoInteractions(
+                taskRepository,
+                notificationRepository,
+                taskFavoriteRepository,
+                taskActivityRepository
+        );
+    }
+
+    @Test
+    void shouldReturnEmptyDashboardListsWhenNoDataExists() {
+
+        when(taskRepository.countByUserId(1L)).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndStatus(
+                anyLong(), any(TaskStatus.class)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndDueDateBeforeAndStatusNot(
+                eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndPriority(
+                anyLong(), any(TaskPriority.class)
+        )).thenReturn(0L);
+
+        when(taskRepository
+                .findByUserIdAndDueDateGreaterThanEqualAndStatusNotOrderByDueDateAsc(
+                        eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+                )).thenReturn(List.of());
+
+        when(notificationRepository.countByUserIdAndReadFalse(1L))
+                .thenReturn(0L);
+
+        when(taskFavoriteRepository.countByUserId(1L))
+                .thenReturn(0L);
+
+        when(taskActivityRepository.findByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        when(notificationRepository.findTop5ByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        DashboardResponseDto result = dashboardService.getDashboard();
+
+        assertEquals(0L, result.getTotalTasks());
+        assertEquals(0L, result.getTodoTasks());
+        assertEquals(0L, result.getInProgressTasks());
+        assertEquals(0L, result.getCompletedTasks());
+        assertEquals(0L, result.getPendingTasks());
+        assertEquals(0L, result.getOverdueTasks());
+        assertEquals(0L, result.getHighPriorityTasks());
+        assertEquals(0L, result.getMediumPriorityTasks());
+        assertEquals(0L, result.getLowPriorityTasks());
+        assertEquals(0L, result.getUnreadNotifications());
+        assertEquals(0L, result.getFavoriteTasks());
+
+        assertTrue(result.getUpcomingTasks().isEmpty());
+        assertTrue(result.getRecentActivities().isEmpty());
+        assertTrue(result.getRecentNotifications().isEmpty());
+    }
+
+    @Test
+    void shouldReturnRecentActivityWithNullTaskTitleWhenTaskDoesNotExist() {
+
+        TaskActivity activity = new TaskActivity();
+        activity.setId(101L);
+        activity.setTaskId(999L);
+        activity.setUser(user);
+        activity.setAction(TaskActivityAction.STATUS_CHANGED);
+        activity.setOldValue("TODO");
+        activity.setNewValue("COMPLETED");
+
+        when(taskActivityRepository.findByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of(activity));
+
+        when(taskRepository.findById(999L))
+                .thenReturn(java.util.Optional.empty());
+
+        when(taskRepository.countByUserId(1L)).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndStatus(
+                anyLong(), any(TaskStatus.class)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndDueDateBeforeAndStatusNot(
+                eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndPriority(
+                anyLong(), any(TaskPriority.class)
+        )).thenReturn(0L);
+
+        when(taskRepository
+                .findByUserIdAndDueDateGreaterThanEqualAndStatusNotOrderByDueDateAsc(
+                        eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+                )).thenReturn(List.of());
+
+        when(notificationRepository.countByUserIdAndReadFalse(1L))
+                .thenReturn(0L);
+
+        when(taskFavoriteRepository.countByUserId(1L))
+                .thenReturn(0L);
+
+        when(notificationRepository.findTop5ByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        DashboardResponseDto result = dashboardService.getDashboard();
+
+        assertEquals(1, result.getRecentActivities().size());
+        assertEquals(999L, result.getRecentActivities().get(0).getTaskId());
+        assertEquals(
+                null,
+                result.getRecentActivities().get(0).getTaskTitle()
+        );
+    }
+
+    @Test
+    void shouldReturnMultipleUpcomingTasksInRepositoryOrder() {
+
+        Task firstTask = Task.builder()
+                .id(11L)
+                .title("First Upcoming Task")
+                .status(TaskStatus.TODO)
+                .priority(TaskPriority.HIGH)
+                .dueDate(LocalDate.now().plusDays(1))
+                .build();
+
+        Task secondTask = Task.builder()
+                .id(12L)
+                .title("Second Upcoming Task")
+                .status(TaskStatus.IN_PROGRESS)
+                .priority(TaskPriority.MEDIUM)
+                .dueDate(LocalDate.now().plusDays(3))
+                .build();
+
+        when(taskRepository
+                .findByUserIdAndDueDateGreaterThanEqualAndStatusNotOrderByDueDateAsc(
+                        eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+                )).thenReturn(List.of(firstTask, secondTask));
+
+        when(taskRepository.countByUserId(1L)).thenReturn(2L);
+
+        when(taskRepository.countByUserIdAndStatus(
+                anyLong(), any(TaskStatus.class)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndDueDateBeforeAndStatusNot(
+                eq(1L), any(LocalDate.class), eq(TaskStatus.COMPLETED)
+        )).thenReturn(0L);
+
+        when(taskRepository.countByUserIdAndPriority(
+                anyLong(), any(TaskPriority.class)
+        )).thenReturn(0L);
+
+        when(notificationRepository.countByUserIdAndReadFalse(1L))
+                .thenReturn(0L);
+
+        when(taskFavoriteRepository.countByUserId(1L))
+                .thenReturn(0L);
+
+        when(taskActivityRepository.findByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        when(notificationRepository.findTop5ByUserIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        DashboardResponseDto result = dashboardService.getDashboard();
+
+        assertEquals(2, result.getUpcomingTasks().size());
+        assertEquals(
+                "First Upcoming Task",
+                result.getUpcomingTasks().get(0).getTitle()
+        );
+        assertEquals(
+                "Second Upcoming Task",
+                result.getUpcomingTasks().get(1).getTitle()
+        );
     }
 }
